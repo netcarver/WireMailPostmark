@@ -3,6 +3,13 @@
 This package uses [Semantic Versioning] and tries to follow the guidelines at [Keep a Changelog].
 
 
+## 0.3.0 - 2021-07-08
+### Added
+- Record API hand-off results on email send.
+- Record Postmark email ID in email body to allow later
+  follow-up of email actions via the Postmark API.
+
+
 ## 0.2.0 - 2021-07-08
 ### Added
 - Readme
