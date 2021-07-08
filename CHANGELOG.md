@@ -3,6 +3,14 @@
 This package uses [Semantic Versioning] and tries to follow the guidelines at [Keep a Changelog].
 
 
+## 0.2.0 - 2021-07-08
+### Added
+- Readme
+- MIT License
+### Removed
+- Nifty License
+
+
 ## 0.1.0 - 2021-07-08
 ### Added
 - Postmark service status checking
