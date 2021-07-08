@@ -511,22 +511,30 @@ TACS;
         $agreed_fs->showIf('agree_terms.count>0');
         $fields->add($agreed_fs);
 
+        if (!empty($this->server_token)) {
+        $n_days  = 30;
+        $from_ts = strtotime("now -$n_days days");
+        $tag     = '';
+        $info    = $this->getServerStats($tag, $from_ts);
+        $error   = !empty($info->ErrorCode);
+        } else {
+            $error = true;
+            $info->message = 'Invalid server token';
+        }
+
         $f = $modules->get('InputfieldText');
         $f->attr('name', 'server_token');
         $f->attr('value', $this->server_token);
         $f->required = true;
         $f->label = $this->_('Your Postmark server token');
         $f->notes = $this->_('Create one fron your [Postmark Servers](https://account.postmarkapp.com/servers) page > then pick your server and hit the "API Tokens" tab.');
-        $f->collapsed = Inputfield::collapsedPopulated;
+        if (!$error) {
+            $f->collapsed = Inputfield::collapsedPopulated;
+        }
         $f->pattern = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
         /* $f->columnWidth = 50; */
         $agreed_fs->add($f);
 
-        $n_days  = 30;
-        $from_ts = strtotime("now -$n_days days");
-        $tag     = '';
-        $info    = $this->getServerStats($tag, $from_ts);
-        $error   = !empty($info->ErrorCode);
 
         $f = $modules->get('InputfieldMarkup');
         if ($error) {
@@ -537,21 +545,41 @@ TACS;
             $f->label = __("Server Stats For Last $n_days Days");
             $keys = [
                 'Sent'               => 'Sent',
+                'Opens'              => 'Opened',
+                'UniqueOpens'        => 'Unique Opens',
+                'TotalClicks'        => 'Total Clicks',
                 'Bounced'            => 'Bounced',
                 'BounceRate'         => 'Bounce Rate',
                 'SpamComplaints'     => 'Spam Complaints',
                 'SpamComplaintsRate' => 'Spam Complaints Rate',
-                'Opens'              => 'Opened',
             ];
             $msg = '';
             foreach ($keys as $key => $fieldname) {
                 $value = $info->$key;
-                if (false !== strpos($key, 'Rate')) $value .= "%";
-                $msg .= "<span class=''>$fieldname: $value</span> ";
+                if (false !== strpos($key, 'Rate')) {
+                    $value .= "%";
+                }
+                $msg .= "<td class=''>$value</td> ";
             }
-            $f->value = "<div>$msg</div>";
-            /* $info = var_export($info, true); */
-            /* $f->value = "<pre>$info</pre>"; */
+            $info = var_export($info, true);
+            $f->value = "
+                <table class='AdminDataTable AdminDataList AdminDataTableResponsive'>
+                <thead><tr role=row>
+                <th>Sent</th>
+                <th>Opened</th>
+                <th>Unique Opens</th>
+                <th>Total Clicks</th>
+                <th>Bounced</th>
+                <th>Bounce Rate</th>
+                <th>Spam Complaints</th>
+                <th>Spam Complaint Rate</th>
+                </tr></thead>
+                <tbody><tr>
+                $msg
+                </tr></tbody>
+                </table>
+                ";
+            /* <pre>$info</pre> */
         }
         $agreed_fs->add($f);
 
@@ -567,7 +595,10 @@ TACS;
         $f->description = $this->_(
             "Please enter any one of the sender signatures you have registered against your postmark account.
             ");
-        /* $f->columnWidth = 50; */
+        $f->columnWidth = 50;
+        if ($error) {
+            $f->collapsed = Inputfield::collapsedPopulated;
+        }
         $agreed_fs->add($f);
 
         $f = $modules->get('InputfieldCheckboxes');
@@ -583,7 +614,12 @@ TACS;
         foreach ($track_options as $k => $string) {
             $f->addOption($k, $string);
         }
+        if ($error) {
+            $f->collapsed = Inputfield::collapsedPopulated;
+        }
+        $f->columnWidth = 50;
         $agreed_fs->add($f);
+
         return $fields;
     }
 
