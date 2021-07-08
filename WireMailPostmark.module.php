@@ -11,9 +11,8 @@ namespace ProcessWire;
  */
 
 
-// TODO Add HTML Patterns for the sender sig and the token field
 // TODO Allow test send via settings page.
-// TODO Test send with a file attachment.
+// TODO Pull server information once we have the token as well as the server send stats.
 // TODO Add test suite
 // TODO Add Changelog
 
@@ -25,9 +24,10 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
 
 
-    static $post_client = null;
-    static $get_client  = null;
-    static $est_date    = null;
+    static $post_client   = null;
+    static $get_client    = null;
+    static $status_client = null;
+    static $est_date      = null;
 
 
     public static function getModuleInfo() {
@@ -164,6 +164,20 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
             $get_client->setHeader('Accept', 'application/json');
             self::$get_client = $get_client;
         }
+
+    }
+
+
+
+    public function getPostmarkServiceStatus() {
+        if (null === self::$status_client) {
+            $status_client = new WireHttp();
+            if (!$status_client) throw new \Exception("Could not create a postmark service get client.");
+            $status_client->setHeader('Accept', 'application/json');
+            self::$status_client = $status_client;
+        }
+
+        return json_decode(self::$status_client->get('https://status.postmarkapp.com/api/1.0/status'));
     }
 
 
@@ -173,7 +187,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
      *
      * Allows for checking for delivery via the actions member of the result object.
      */
-    public function getStatus($id = null) {
+    protected function getEmailInfo($id = null) {
         $token = $this->server_token;
         self::initClients($token);
 
@@ -186,6 +200,19 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
         $result = json_decode(
             self::$get_client->get("https://api.postmarkapp.com/messages/outbound/$id/details")
+        );
+
+        return $result;
+    }
+
+
+
+    protected function getServerInfo() {
+        $token = $this->server_token;
+        self::initClients($token);
+
+        $result = json_decode(
+            self::$get_client->get("https://api.postmarkapp.com/server")
         );
 
         return $result;
@@ -206,7 +233,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
 
 
-    public function getServerStats(string $tag = '', $from_ts = 0, $to_ts = 0) {
+    public function getServerSendStats(string $tag = '', $from_ts = 0, $to_ts = 0) {
         $token = $this->server_token;
         self::initClients($token);
 
@@ -511,22 +538,44 @@ TACS;
         $agreed_fs->showIf('agree_terms.count>0');
         $fields->add($agreed_fs);
 
-        if (!empty($this->server_token)) {
-        $n_days  = 30;
-        $from_ts = strtotime("now -$n_days days");
-        $tag     = '';
-        $info    = $this->getServerStats($tag, $from_ts);
-        $error   = !empty($info->ErrorCode);
-        } else {
+        $service_status = $this->getPostmarkServiceStatus();
+        /* $service_status->status = 'DELAYED'; */
+        $postmark_is_limited = in_array($service_status->status, ['DOWN', 'MAINTENANCE', 'DEGRADED']);
+
+        $f = $modules->get('InputfieldMarkup');
+        $status = $service_status->status;
+        $status_class = wire()->sanitizer->snakeCase($status);
+        $f->label = $this->_("Postmark Status");
+        $f->value = "<span>Postmark is <span class='postmark-status-$status_class' style='font-weight:600'>$status</span></span>";
+        $f->notes = $this->_("See the Postmark [status page](https://status.postmarkapp.com/) for full stats and delivery timings.");
+        $agreed_fs->add($f);
+
+        $info = new \stdClass();
+        $server_info = new \stdClass();
+
+        if ($postmark_is_limited) {
             $error = true;
-            $info->message = 'Invalid server token';
+            $info->Message = 'Postmark stats not available due to service status';
+        } else {
+            if (!empty($this->server_token)) {
+                $server_info = $this->getServerInfo();
+                bd($server_info);
+                $n_days  = 30;
+                $from_ts = strtotime("now -$n_days days");
+                $tag     = '';
+                $info    = $this->getServerSendStats($tag, $from_ts);
+                $error   = !empty($info->ErrorCode);
+            } else {
+                $error = true;
+                $info->Message = 'Invalid server token';
+            }
         }
 
         $f = $modules->get('InputfieldText');
         $f->attr('name', 'server_token');
         $f->attr('value', $this->server_token);
         $f->required = true;
-        $f->label = $this->_('Your Postmark server token');
+        $f->label = $this->_('Your Postmark Server Token');
         $f->notes = $this->_('Create one fron your [Postmark Servers](https://account.postmarkapp.com/servers) page > then pick your server and hit the "API Tokens" tab.');
         if (!$error) {
             $f->collapsed = Inputfield::collapsedPopulated;
@@ -542,7 +591,10 @@ TACS;
             $msg = $info->Message;
             $f->value = "<p>$msg</p>";
         } else {
-            $f->label = __("Server Stats For Last $n_days Days");
+            $server_title = $server_info->Name;
+            $server_type  = $server_info->DeliveryType;
+            $server_link  = $server_info->ServerLink;
+            $f->label = $this->_("$n_days Day Stats for Your $server_type Server '$server_title'");
             $keys = [
                 'Sent'               => 'Sent',
                 'Opens'              => 'Opened',
@@ -579,7 +631,7 @@ TACS;
                 </tr></tbody>
                 </table>
                 ";
-            /* <pre>$info</pre> */
+            $f->notes = $this->_("Visit [your server's page]($server_link) on Postmark.");
         }
         $agreed_fs->add($f);
 
@@ -596,7 +648,7 @@ TACS;
             "Please enter any one of the sender signatures you have registered against your postmark account.
             ");
         $f->columnWidth = 50;
-        if ($error) {
+        if (!$postmark_is_limited && $error) {
             $f->collapsed = Inputfield::collapsedPopulated;
         }
         $agreed_fs->add($f);
@@ -605,7 +657,7 @@ TACS;
         $f->attr('name', 'track_flags');
         $f->attr('value', $this->track_flags);
         $f->label = $this->_('Do you want email tracking?');
-        $f->description = _("Choose which type of tracking you'd like.");
+        $f->description = _("Choose which types of tracking you'd like.");
         $track_options = [
             'open'       => $this->_('Email opened'),
             'plainlinks' => $this->_('Plain body link clicks'),
@@ -614,7 +666,7 @@ TACS;
         foreach ($track_options as $k => $string) {
             $f->addOption($k, $string);
         }
-        if ($error) {
+        if (!$postmark_is_limited && $error) {
             $f->collapsed = Inputfield::collapsedPopulated;
         }
         $f->columnWidth = 50;
