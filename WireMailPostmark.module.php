@@ -220,19 +220,6 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
 
 
-    /* public function getSenderSignatures(int $count = 50, int $offset = 0) { */
-    /*     $token = $this->server_token; */
-    /*     self::initClients($token); */
-
-    /*     $result = json_decode( */
-    /*         self::$get_client->get("https://api.postmarkapp.com/senders?count=$count&offset=$offset") */
-    /*     ); */
-/* /1* bd($result); *1/ */
-    /*     return $result; */
-    /* } */
-
-
-
     public function getServerSendStats(string $tag = '', $from_ts = 0, $to_ts = 0) {
         $token = $this->server_token;
         self::initClients($token);
@@ -559,7 +546,7 @@ TACS;
         } else {
             if (!empty($this->server_token)) {
                 $server_info = $this->getServerInfo();
-                bd($server_info);
+                /* bd($server_info); */
                 $n_days  = 30;
                 $from_ts = strtotime("now -$n_days days");
                 $tag     = '';
