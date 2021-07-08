@@ -12,9 +12,7 @@ namespace ProcessWire;
 
 
 // TODO Allow test send via settings page.
-// TODO Pull server information once we have the token as well as the server send stats.
 // TODO Add test suite
-// TODO Add Changelog
 
 
 class WireMailPostmark extends WireMail implements Module, ConfigurableModule
@@ -37,7 +35,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
             'author'      => 'Netcarver & Pete of Nifty Solutions',
             'summary'     => 'Allows Processwire to send transactional email via Postmark',
             'href'        => 'https://postmarkapp.com',
-            'version'     => '0.0.2',
+            'version'     => '0.1.0',
             'autoload'    => true,
             'singular'    => false,
             'permanent'   => false,
