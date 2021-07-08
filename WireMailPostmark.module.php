@@ -3,16 +3,45 @@
 namespace ProcessWire;
 
 /**
- * This module is a paid product and not part of Processwire.
+ * A WireMail module for ProcessWire CMF/CMS
+ * =========================================
  *
- *        >>>>> Please do not redistribute <<<<<
- * Copyright 2020 Netcarver & Pete from Nifty Solutions
+ * Example Usage
+ * -------------
  *
+ * $email = new WireMailPostmark();
+ * $email->to = 'recipient@somedomain.com';
+ * $email->subject = 'Test #1';
+ * $email->body = 'An example email';
+ * $email->send();
+ *
+ *
+ *
+ * This file is released under the following license:
+ *
+ * The MIT License (MIT)
+ * =====================
+ *
+ * Copyright © 2021-present Netcarver & Nifty Solutions
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
-
-
-// TODO Allow test send via settings page.
-// TODO Add test suite
 
 
 class WireMailPostmark extends WireMail implements Module, ConfigurableModule
@@ -26,6 +55,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
     static $get_client    = null;
     static $status_client = null;
     static $est_date      = null;
+
 
 
     public static function getModuleInfo() {
@@ -85,7 +115,6 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
     public static function getDefaultConfig() {
         return [
-            'agree_terms'      => [],
             'server_token'     => '',
             'sender_signature' => '',
             'track_flags'      => [],
@@ -345,7 +374,6 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
         self::initClients($token);
 
         $sig         = $this->sender_signature;
-        $terms       = $this->agree_terms;
         $track_html  = in_array('htmllinks',  $this->track_flags);
         $track_plain = in_array('plainlinks', $this->track_flags);
         $track_opens = in_array('open',       $this->track_flags);
@@ -365,10 +393,10 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
         $bccs = $this->stringifyEmailAndNameArray($email['bccs']);
 
         if ($debug) {
-            bd(compact('this', 'email', 'client', 'token', 'sig', 'terms', 'header'));
+            bd(compact('this', 'email', 'token', 'sig'));
         }
 
-        if (in_array('agree_and_enable', $terms) && !empty($token) && !empty($sig)) {
+        if (!empty($token) && !empty($sig)) {
             $send_count = 0;
             try {
                 $tos = array_fill_keys(array_keys($email['to']), '');
@@ -473,56 +501,6 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
     public function getModuleConfigInputfields(InputfieldWrapper $fields) {
         $modules  = wire()->modules;
 
-        $tac_fs = $modules->get("InputfieldFieldset");
-        if (empty($this->agree_terms)) {
-            $tac_fs->collapsed = Inputfield::collapsedNo;
-            $tac_fs->label = $this->_("Terms & Conditions / Enable Module? [Currently: Not agreed - module disabled]");
-        } else {
-            $tac_fs->collapsed = Inputfield::collapsedYes;
-            $tac_fs->label = $this->_("Terms & Conditions / Enable Module? [Currently: Agreed - module enabled]");
-        }
-        $fields->add($tac_fs);
-
-        $f = $modules->get('InputfieldMarkup');
-        $f->label = $this->_('Terms & Conditions');
-        $tacs = <<<TACS
-This is a commercial module developed by Netcarver and Pete of Nifty Solutions.
-
-Not for redistribution.
-
-You may use this on site(s) according to the type of license you purchased, including any
-development or staging server used in the development of the site(s) you purchased your
-license for.
-
-In no event shall the developers of this module be liable for any special, indirect,
-consequential, exemplary, or incidental damages whatsoever, including, without limitation,
-damage for loss of business profits, business interruption, loss of business information,
-loss of goodwill, or other pecuniary loss whether based in contract, tort, negligence,
-strict liability, or otherwise, arising out of the use or inability to use this module,
-even if developers of module have been advised of the possibility of such damages.
-
-This module is provided "as-is" without warranty of any kind, either expressed or
-implied, including, but not limited to, the implied warranties of merchantability and
-fitness for a particular purpose. The entire risk as to the quality and performance
-of the program is with you. Should the program prove defective, you assume the cost
-of all necessary servicing, repair or correction.
-TACS;
-        $tacs = str_replace("\n\n", "<br><br>", $tacs);
-        $f->value = $tacs;
-        $tac_fs->add($f);
-
-        $f = $modules->get('InputfieldCheckboxes');
-        $f->attr('name', 'agree_terms');
-        $f->attr('value', $this->agree_terms);
-        $f->label = $this->_("Agree T&C's And Enable Module?");
-        $f->addOption('agree_and_enable', $this->_('Yes - I agree to the terms & conditions.'));
-        $tac_fs->add($f);
-
-        $agreed_fs = $modules->get("InputfieldFieldset");
-        $agreed_fs->label = $this->_("Settings");
-        $agreed_fs->showIf('agree_terms.count>0');
-        $fields->add($agreed_fs);
-
         $service_status = $this->getPostmarkServiceStatus();
         /* $service_status->status = 'DELAYED'; */
         $postmark_is_limited = in_array($service_status->status, ['DOWN', 'MAINTENANCE', 'DEGRADED']);
@@ -533,7 +511,7 @@ TACS;
         $f->label = $this->_("Postmark Status");
         $f->value = "<span>Postmark is <span class='postmark-status-$status_class' style='font-weight:600'>$status</span></span>";
         $f->notes = $this->_("See the Postmark [status page](https://status.postmarkapp.com/) for full stats and delivery timings.");
-        $agreed_fs->add($f);
+        $fields->add($f);
 
         $info = new \stdClass();
         $server_info = new \stdClass();
@@ -560,15 +538,14 @@ TACS;
         $f->attr('name', 'server_token');
         $f->attr('value', $this->server_token);
         $f->required = true;
+        $f->icon = 'key';
         $f->label = $this->_('Your Postmark Server Token');
         $f->notes = $this->_('Create one fron your [Postmark Servers](https://account.postmarkapp.com/servers) page > then pick your server and hit the "API Tokens" tab.');
         if (!$error) {
             $f->collapsed = Inputfield::collapsedPopulated;
         }
         $f->pattern = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-        /* $f->columnWidth = 50; */
-        $agreed_fs->add($f);
-
+        $fields->add($f);
 
         $f = $modules->get('InputfieldMarkup');
         if ($error) {
@@ -579,7 +556,7 @@ TACS;
             $server_title = $server_info->Name;
             $server_type  = $server_info->DeliveryType;
             $server_link  = $server_info->ServerLink;
-            $f->label = $this->_("$n_days Day Stats for Your $server_type Server '$server_title'");
+            $f->label = $this->_("$n_days Day Stats for $server_type Server: '$server_title'");
             $keys = [
                 'Sent'               => 'Sent',
                 'Opens'              => 'Opened',
@@ -618,13 +595,14 @@ TACS;
                 ";
             $f->notes = $this->_("Visit [your server's page]($server_link) on Postmark.");
         }
-        $agreed_fs->add($f);
+        $fields->add($f);
 
         $f = $modules->get('InputfieldEmail');
         $f->attr('name', 'sender_signature');
         $f->attr('value', $this->sender_signature);
         $f->required = true;
         $f->label = $this->_('Sender Signature');
+        $f->icon = 'envelope';
         $f->notes = $this->_(
             'See your [Postmark Sender Signatures](https://account.postmarkapp.com/signature_domains) page.
              Any email you send via Postmark will use this email address. You can specify a different **reply-to** address if you need to.
@@ -636,7 +614,7 @@ TACS;
         if (!$postmark_is_limited && $error) {
             $f->collapsed = Inputfield::collapsedPopulated;
         }
-        $agreed_fs->add($f);
+        $fields->add($f);
 
         $f = $modules->get('InputfieldCheckboxes');
         $f->attr('name', 'track_flags');
@@ -655,7 +633,7 @@ TACS;
             $f->collapsed = Inputfield::collapsedPopulated;
         }
         $f->columnWidth = 50;
-        $agreed_fs->add($f);
+        $fields->add($f);
 
         return $fields;
     }
@@ -665,7 +643,7 @@ TACS;
     public function sendTestMessage() {
         $email             = self::blankEmail();
         $now               = time();
-        $email['to']       = $this->sender_signature;
+        $email->to         = $this->sender_signature;
         $email['from']     = $this->sender_signature;
         $email['fromName'] = 'WireMailPostmark';
         $email['subject']  = 'Test email from WiremailPostmark: ' . $now;
