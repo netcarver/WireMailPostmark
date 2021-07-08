@@ -285,7 +285,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
     public function ___send() {
         $email = $this->mail;
-        bd(compact('this', 'email'));
+        /* bd(compact('this', 'email')); */
         return $this->sendEmail($email);
     }
 
@@ -377,7 +377,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
         $track_html  = in_array('htmllinks',  $this->track_flags);
         $track_plain = in_array('plainlinks', $this->track_flags);
         $track_opens = in_array('open',       $this->track_flags);
-        $send_count  = false;
+        $send_count  = 0;
 
         if ($track_plain && $track_html) {
             $track_links = 'HtmlAndText';
@@ -464,8 +464,12 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
                 /* bd(compact('payload', 'send_result')); */
 
-                $this->email_id = $send_result->MessageID; // Allow tracking should you wish to do so.
-                return $send_result;
+                $this->email_id = $send_result->MessageID; // Record results and ID...
+                $this->mail['send_results'][] = $send_result;
+
+                if (!empty($send_result->MessageID)){
+                    $send_count = 1;
+                }
             }
 
             catch (\Throwable $e) {
