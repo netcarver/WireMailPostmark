@@ -462,14 +462,17 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
                     )
                 );
 
-                /* bd(compact('payload', 'send_result')); */
-
-                $this->email_id = $send_result->MessageID; // Record results and ID...
-                $this->mail['send_results'][] = $send_result;
-
-                if (!empty($send_result->MessageID)){
+                $error_code = $send_result->ErrorCode;
+                if ($error_code) {
+                    $logmsg = $send_result->Message ?? "Error sending email";
+                } else {
                     $send_count = 1;
+                    $this->email_id = $send_result->MessageID;
+                    $this->mail['send_results'][] = $send_result;
+                    $logmsg = "Email accepted with message ID: {$send_result->MessageID}";
                 }
+
+                $this->vlog($logmsg);
             }
 
             catch (\Throwable $e) {
