@@ -12,6 +12,16 @@ Install the module as usual, then insert your Postmark Server Token and Sender S
 save the settings. If all goes well, you'll see the Postmark service status and the stats for your server after a few
 seconds.
 
+![Module Settings Page Layout](./docs/screenshot-module-config.png)
+
 If you get accurate stats shown in the module configuration page, you should then be able to send emails using this
 module.
 
+## Postmark
+
+![Postmark's Server Status Page](./docs/screenshot-postmark-status.png)
+
+If this module proves to be of any use to you and you end up signing up for a paid plan with Postmark, please consider
+contacting Postmark's excellent support service regarding their [Friends-and-Family
+program](https://postmarkapp.com/loves/friends-family), letting them know about Nifty Solutions and we'll both get a
+month's free service.
