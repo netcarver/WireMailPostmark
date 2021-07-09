@@ -65,7 +65,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
             'author'      => 'Netcarver & Pete of Nifty Solutions',
             'summary'     => 'Allows Processwire to send transactional email via Postmark',
             'href'        => 'https://postmarkapp.com',
-            'version'     => '0.3.0',
+            'version'     => '0.4.0',
             'autoload'    => true,
             'singular'    => false,
             'permanent'   => false,
