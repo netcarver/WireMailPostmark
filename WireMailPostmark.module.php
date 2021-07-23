@@ -116,6 +116,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
     public static function getDefaultConfig() {
         return [
             'server_token'     => '',
+            'debug_mode_server_token' => '',
             'sender_signature' => '',
             'track_flags'      => [],
         ];
@@ -234,8 +235,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
 
 
-    protected function getServerInfo() {
-        $token = $this->server_token;
+    protected function getServerInfo($token) {
         self::initClients($token);
 
         $result = json_decode(
@@ -370,7 +370,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
 
     public function sendEmail(array $email, bool $debug = false) {
-        $token       = $this->server_token;
+        $token = wire()->config->debug && $this->debug_mode_server_token ? $this->debug_mode_server_token : $this->server_token;
         self::initClients($token);
 
         $sig         = $this->sender_signature;
@@ -392,8 +392,9 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
         $ccs  = $this->stringifyEmailAndNameArray($email['ccs']);
         $bccs = $this->stringifyEmailAndNameArray($email['bccs']);
 
-        if ($debug) {
-            bd(compact('this', 'email', 'token', 'sig'));
+        if (true || $debug) {
+            /* bd(compact('this', 'email', 'token', 'sig')); */
+            $this->vlog($email);
         }
 
         if (!empty($token) && !empty($sig)) {
@@ -402,7 +403,6 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
                 $tos = array_fill_keys(array_keys($email['to']), '');
                 $tos = array_merge($tos, $email['toName']);
                 $to_list = $this->stringifyEmailAndNameArray($tos);
-                /* bd(compact('tos', 'to_list')); */
 
                 $payload = [
                     'From'          => $sig,
@@ -455,6 +455,9 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
                     }
                 }
 
+                /* bd($payload['HtmlBody']); */
+                /* $ok = file_put_contents('/tmp/email.txt', $payload['HtmlBody']); */
+
                 $send_result = json_decode(
                     self::$post_client->post(
                         'https://api.postmarkapp.com/email',
@@ -462,6 +465,10 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
                     )
                 );
 
+                /* $send_result = new \stdClass(); */
+                /* $send_result->ErrorCode = 0; */
+                /* $send_result->Message = 'Faux Send'; */
+                /* $send_result->MessageID = 'FAKE-BEEF'; */
                 $error_code = $send_result->ErrorCode;
                 if ($error_code) {
                     $logmsg = $send_result->Message ?? "Error sending email";
@@ -525,11 +532,17 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
         if ($postmark_is_limited) {
             $error = true;
-            $info->Message = 'Postmark stats not available due to service status';
+            $info->Message = $this->_('Postmark stats not available due to service status');
         } else {
-            if (!empty($this->server_token)) {
-                $server_info = $this->getServerInfo();
-                /* bd($server_info); */
+            if (wire()->config->debug && !empty($this->debug_mode_server_token)) {
+                $server_info = $this->getServerInfo($this->debug_mode_server_token);
+                $n_days  = 30;
+                $from_ts = strtotime("now -$n_days days");
+                $tag     = '';
+                $info    = $this->getServerSendStats($tag, $from_ts);
+                $error   = !empty($info->ErrorCode);
+            } else if (!empty($this->server_token)) {
+                $server_info = $this->getServerInfo($this->server_token);
                 $n_days  = 30;
                 $from_ts = strtotime("now -$n_days days");
                 $tag     = '';
@@ -537,16 +550,31 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
                 $error   = !empty($info->ErrorCode);
             } else {
                 $error = true;
-                $info->Message = 'Invalid server token';
+                $info->Message = $this->_('Invalid server token');
             }
         }
 
+        $live_active    = wire()->config->debug ? '' : $this->_('(ACTIVE)');
+        $sandbox_active = wire()->config->debug ? $this->_('(ACTIVATED from $config->debug)') : '';
         $f = $modules->get('InputfieldText');
         $f->attr('name', 'server_token');
         $f->attr('value', $this->server_token);
         $f->required = true;
         $f->icon = 'key';
-        $f->label = $this->_('Your Postmark Server Token');
+        $f->label = wirePopulateStringTags($this->_('Your Postmark Server Token {status}'), ['status' => $live_active]);
+        $f->notes = $this->_('Create one fron your [Postmark Servers](https://account.postmarkapp.com/servers) page > then pick your server and hit the "API Tokens" tab.');
+        if (!$error) {
+            $f->collapsed = Inputfield::collapsedPopulated;
+        }
+        $f->pattern = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+        $fields->add($f);
+
+        $f = $modules->get('InputfieldText');
+        $f->attr('name', 'debug_mode_server_token');
+        $f->attr('value', $this->debug_mode_server_token);
+        $f->required = true;
+        $f->icon = 'key';
+        $f->label = wirePopulateStringTags($this->_('Your Postmark Sandbox Server Token {status}'), ['status' => $sandbox_active]);
         $f->notes = $this->_('Create one fron your [Postmark Servers](https://account.postmarkapp.com/servers) page > then pick your server and hit the "API Tokens" tab.');
         if (!$error) {
             $f->collapsed = Inputfield::collapsedPopulated;
