@@ -3,6 +3,12 @@
 This package uses [Semantic Versioning] and tries to follow the guidelines at [Keep a Changelog].
 
 
+## 0.5.0 - 2021-07-23
+## Added
+* Server token for sandbox server to be used when site in debug mode.
+
+
+
 ## 0.4.0 - 2021-07-09
 ### Added
 - Images to Readme
