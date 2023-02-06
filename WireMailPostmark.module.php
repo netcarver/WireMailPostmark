@@ -64,7 +64,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
             'author'      => 'Netcarver & Pete of Nifty Solutions',
             'summary'     => 'Allows Processwire to send transactional email via Postmark',
             'href'        => 'https://postmarkapp.com',
-            'version'     => '0.5.1',
+            'version'     => '0.5.2',
             'autoload'    => true,
             'singular'    => false,
             'permanent'   => false,
@@ -498,6 +498,12 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
 
 
+    public function ents(string $s) {
+        return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    }
+
+
+
     public function getModuleConfigInputfields(InputfieldWrapper $fields) {
         $modules = wire()->modules;
         $f = $modules->get('InputfieldMarkup');
@@ -555,12 +561,11 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
         $f = $modules->get('InputfieldMarkup');
         if ($error) {
             $f->label = __('Error');
-            $msg = $info->Message;
+            $msg = $this->ents($info->Message);
             $f->value = "<p>$msg</p>";
         } else {
             $server_title = $server_info->Name;
             $server_type  = $server_info->DeliveryType;
-            $server_link  = $server_info->ServerLink;
             $f->label = $this->_("$n_days Day Stats for $server_type Server: '$server_title'");
             $keys = [
                 'Sent'               => 'Sent',
@@ -573,32 +578,28 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
                 'SpamComplaintsRate' => 'Spam Complaints Rate',
             ];
             $msg = '';
+            $headings = '';
             foreach ($keys as $key => $fieldname) {
                 $value = $info->$key;
                 if (false !== strpos($key, 'Rate')) {
-                    $value .= "%";
+                    $value = floatval($value); // Santize values from Postmark API - just in case
+                    $value = "$value%";
+                } else {
+                    $value = (int) $value;  // Sanitize value from API
                 }
                 $msg .= "<td class=''>$value</td> ";
+                $headings .= "<th>$fieldname</th>";
             }
             $info = var_export($info, true);
             $f->value = "
                 <table class='AdminDataTable AdminDataList AdminDataTableResponsive'>
-                <thead><tr role=row>
-                <th>Sent</th>
-                <th>Opened</th>
-                <th>Unique Opens</th>
-                <th>Total Clicks</th>
-                <th>Bounced</th>
-                <th>Bounce Rate</th>
-                <th>Spam Complaints</th>
-                <th>Spam Complaint Rate</th>
-                </tr></thead>
+                <thead><tr role=row>$headings</tr></thead>
                 <tbody><tr>
                 $msg
                 </tr></tbody>
                 </table>
                 ";
-            $f->notes = $this->_("Visit [your server's page]($server_link) on Postmark.");
+            $f->notes = $this->_("Visit [your server's page](https://account.postmarkapp.com/servers/) on Postmark.");
         }
         $fields->add($f);
 
@@ -625,7 +626,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
         $f->attr('name', 'track_flags');
         $f->attr('value', $this->track_flags);
         $f->label = $this->_('Do you want email tracking?');
-        $f->description = _("Choose which types of tracking you'd like.");
+        $f->description = $this->_("Choose which types of tracking you'd like.");
         $track_options = [
             'open'       => $this->_('Email opened'),
             'plainlinks' => $this->_('Plain body link clicks'),

@@ -6,6 +6,16 @@ This package uses [Semantic Versioning] and tries to follow the guidelines at [K
 
 ### Fixed
 
+-   Call to undefined function \_()
+
+### Added
+
+-   More sanitisation of values pulled from the postmark stats API
+
+## 0.5.1 - 2023-02-06
+
+### Fixed
+
 -   Failed reads from postmark Status API
 
 ## 0.5.0 - 2021-07-23
