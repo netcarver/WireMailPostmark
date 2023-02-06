@@ -57,7 +57,6 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
     static $est_date      = null;
 
 
-
     public static function getModuleInfo() {
         return [
             'name'        => self::MYCLASS,
@@ -65,7 +64,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
             'author'      => 'Netcarver & Pete of Nifty Solutions',
             'summary'     => 'Allows Processwire to send transactional email via Postmark',
             'href'        => 'https://postmarkapp.com',
-            'version'     => '0.5.0',
+            'version'     => '0.5.1',
             'autoload'    => true,
             'singular'    => false,
             'permanent'   => false,
@@ -193,19 +192,6 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
             self::$get_client = $get_client;
         }
 
-    }
-
-
-
-    public function getPostmarkServiceStatus() {
-        if (null === self::$status_client) {
-            $status_client = new WireHttp();
-            if (!$status_client) throw new \Exception("Could not create a postmark service get client.");
-            $status_client->setHeader('Accept', 'application/json');
-            self::$status_client = $status_client;
-        }
-
-        return json_decode(self::$status_client->get('https://status.postmarkapp.com/api/1.0/status'));
     }
 
 
@@ -513,45 +499,29 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
 
 
     public function getModuleConfigInputfields(InputfieldWrapper $fields) {
-        $modules  = wire()->modules;
-
-        $service_status = $this->getPostmarkServiceStatus();
-        /* $service_status->status = 'DELAYED'; */
-        $postmark_is_limited = in_array($service_status->status, ['DOWN', 'MAINTENANCE', 'DEGRADED']);
-
+        $modules = wire()->modules;
         $f = $modules->get('InputfieldMarkup');
-        $status = $service_status->status;
-        $status_class = wire()->sanitizer->snakeCase($status);
-        $f->label = $this->_("Postmark Status");
-        $f->value = "<span>Postmark is <span class='postmark-status-$status_class' style='font-weight:600'>$status</span></span>";
-        $f->notes = $this->_("See the Postmark [status page](https://status.postmarkapp.com/) for full stats and delivery timings.");
-        $fields->add($f);
 
         $info = new \stdClass();
         $server_info = new \stdClass();
 
-        if ($postmark_is_limited) {
-            $error = true;
-            $info->Message = $this->_('Postmark stats not available due to service status');
+        if (wire()->config->debug && !empty($this->debug_mode_server_token)) {
+            $server_info = $this->getServerInfo($this->debug_mode_server_token);
+            $n_days  = 30;
+            $from_ts = strtotime("now -$n_days days");
+            $tag     = '';
+            $info    = $this->getServerSendStats($tag, $from_ts);
+            $error   = !empty($info->ErrorCode);
+        } else if (!empty($this->server_token)) {
+            $server_info = $this->getServerInfo($this->server_token);
+            $n_days  = 30;
+            $from_ts = strtotime("now -$n_days days");
+            $tag     = '';
+            $info    = $this->getServerSendStats($tag, $from_ts);
+            $error   = !empty($info->ErrorCode);
         } else {
-            if (wire()->config->debug && !empty($this->debug_mode_server_token)) {
-                $server_info = $this->getServerInfo($this->debug_mode_server_token);
-                $n_days  = 30;
-                $from_ts = strtotime("now -$n_days days");
-                $tag     = '';
-                $info    = $this->getServerSendStats($tag, $from_ts);
-                $error   = !empty($info->ErrorCode);
-            } else if (!empty($this->server_token)) {
-                $server_info = $this->getServerInfo($this->server_token);
-                $n_days  = 30;
-                $from_ts = strtotime("now -$n_days days");
-                $tag     = '';
-                $info    = $this->getServerSendStats($tag, $from_ts);
-                $error   = !empty($info->ErrorCode);
-            } else {
-                $error = true;
-                $info->Message = $this->_('Invalid server token');
-            }
+            $error = true;
+            $info->Message = $this->_('Invalid server token');
         }
 
         $live_active    = wire()->config->debug ? '' : $this->_('(ACTIVE)');
@@ -646,7 +616,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
             "Please enter any one of the sender signatures you have registered against your postmark account.
             ");
         $f->columnWidth = 50;
-        if (!$postmark_is_limited && $error) {
+        if ($error) {
             $f->collapsed = Inputfield::collapsedPopulated;
         }
         $fields->add($f);
@@ -664,7 +634,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
         foreach ($track_options as $k => $string) {
             $f->addOption($k, $string);
         }
-        if (!$postmark_is_limited && $error) {
+        if ($error) {
             $f->collapsed = Inputfield::collapsedPopulated;
         }
         $f->columnWidth = 50;
