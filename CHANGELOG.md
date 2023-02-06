@@ -2,7 +2,13 @@
 
 This package uses [Semantic Versioning] and tries to follow the guidelines at [Keep a Changelog].
 
-## 0.5.1 - 2023-02-06
+## 0.5.3 - 2023-02-06
+
+### Fixed
+
+-   String in settings
+
+## 0.5.2 - 2023-02-06
 
 ### Fixed
 

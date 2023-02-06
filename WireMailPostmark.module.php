@@ -64,7 +64,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
             'author'      => 'Netcarver & Pete of Nifty Solutions',
             'summary'     => 'Allows Processwire to send transactional email via Postmark',
             'href'        => 'https://postmarkapp.com',
-            'version'     => '0.5.2',
+            'version'     => '0.5.3',
             'autoload'    => true,
             'singular'    => false,
             'permanent'   => false,
@@ -538,7 +538,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
         $f->required = true;
         $f->icon = 'key';
         $f->label = wirePopulateStringTags($this->_('Your Postmark Server Token {status}'), ['status' => $live_active]);
-        $f->notes = $this->_('Create one fron your [Postmark Servers](https://account.postmarkapp.com/servers) page > then pick your server and hit the "API Tokens" tab.');
+        $f->notes = $this->_('Create one from your [Postmark Servers](https://account.postmarkapp.com/servers) page > then pick your server and hit the "API Tokens" tab.');
         if (!$error) {
             $f->collapsed = Inputfield::collapsedPopulated;
         }
