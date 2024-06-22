@@ -70,7 +70,7 @@ class WireMailPostmark extends WireMail implements Module, ConfigurableModule
             'permanent'   => false,
             'requires'    => [
                 'ProcessWire>3.0.33',
-                'PHP>='.self::MIN_PHP,
+                'PHP>=7.2.0',
             ],
         ];
     }
